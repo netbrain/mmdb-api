@@ -15,15 +15,7 @@
 
 package org.mymediadb.api.mmdb.model;
 
-import java.util.Collection;
 
 public interface User {
-    public String getUsername();
-
-    public String getDisplayName();
-
-    public String getEmail();
-
-    public Collection<? extends Media> getMediaLibrary();
 
 }

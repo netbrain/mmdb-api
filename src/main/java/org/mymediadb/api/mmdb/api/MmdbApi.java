@@ -15,54 +15,16 @@
 
 package org.mymediadb.api.mmdb.api;
 
-import org.mymediadb.api.mmdb.model.Media;
-import org.mymediadb.api.mmdb.model.User;
-import org.mymediadb.api.mmdb.model.UserMedia;
 
+import org.mymediadb.api.mmdb.model.Token;
+
+import java.net.URI;
 import java.util.List;
 
 public interface MmdbApi {
 
-    public enum IdType {
-        MMDB,
-        TMDB,
-        IMDB;
+    URI getAuthorizeEndpoint(String redirectUri, String state);
 
-        public String toString() {
-            return super.toString().toLowerCase();
-        }
-    }
+    Token getAccessToken(String username, String password);
 
-    public enum MediaType {
-        MOVIE,
-        SERIES,
-        BOOKS,
-        MUSIC;
-
-        public String toString() {
-            return super.toString().toLowerCase();
-        }
-    }
-
-    public List<? extends Media> search(MediaType mediaType, String searchQuery);
-
-    public Media getMedia(MediaType mediaType, IdType idType, Object id);
-
-    public <T> T getMedia(Class<T> mediaType, IdType idType, Object id);
-
-    public User getUser();
-
-    public UserMedia putUserMedia(MediaType mediaType, IdType idType, Object id, UserMedia media);
-
-    public UserMedia getUserMedia(MediaType mediaType, IdType idType, Object id);
-
-    public UserMedia getEmptyUserMedia();
-
-    /**
-     * Set authentication information to be used with mmdb api
-     *
-     * @param username
-     * @param password
-     */
-    public void setBasicAuthentication(String username, String password);
 }

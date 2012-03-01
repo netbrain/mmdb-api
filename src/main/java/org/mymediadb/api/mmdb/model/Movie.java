@@ -15,10 +15,6 @@
 
 package org.mymediadb.api.mmdb.model;
 
-public interface Movie extends Media {
-    public long getTmdbId();
+public interface Movie {
 
-    public String getImdbId();
-
-    public String getName();
 }

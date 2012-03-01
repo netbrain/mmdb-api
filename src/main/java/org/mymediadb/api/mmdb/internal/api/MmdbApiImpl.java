@@ -16,210 +16,78 @@
 package org.mymediadb.api.mmdb.internal.api;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonParseException;
+import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.AuthCache;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.protocol.ClientContext;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.auth.BasicScheme;
-import org.apache.http.impl.client.BasicAuthCache;
-import org.apache.http.impl.client.BasicCookieStore;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.URIUtils;
+import org.apache.http.impl.client.ContentEncodingHttpClient;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.protocol.BasicHttpContext;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 import org.mymediadb.api.mmdb.api.MmdbApi;
-import org.mymediadb.api.mmdb.internal.model.MovieImpl;
-import org.mymediadb.api.mmdb.internal.model.UserImpl;
-import org.mymediadb.api.mmdb.internal.model.UserMediaImpl;
-import org.mymediadb.api.mmdb.model.Media;
-import org.mymediadb.api.mmdb.model.Movie;
-import org.mymediadb.api.mmdb.model.User;
-import org.mymediadb.api.mmdb.model.UserMedia;
+import org.mymediadb.api.mmdb.api.MmdbApiException;
+import org.mymediadb.api.mmdb.internal.model.OauthErrorImpl;
+import org.mymediadb.api.mmdb.internal.model.TokenImpl;
+import org.mymediadb.api.mmdb.model.Token;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Collections;
 
 public class MmdbApiImpl implements MmdbApi {
     public final static Logger log = Logger.getLogger(MmdbApiImpl.class);
 
     private final static int API_PORT = 80;
     private final static String API_SCHEMA = "http";
-    private final static String API_HOST = "www.mymediadb.org";
-    private final static String API_PATH = "/api/0.1";
+    private final static String API_HOST = "test.mymediadb.org";
+    private final static String API_PATH = "/api/0.2";
 
     private static final HttpHost targetHost = new HttpHost(API_HOST, API_PORT, API_SCHEMA);
-    private static final DefaultHttpClient httpClient = new DefaultHttpClient();
-    private static final BasicHttpContext localContext = new BasicHttpContext();
-    private static final AuthScope authScope = new AuthScope(targetHost.getHostName(), targetHost.getPort());
+    private static final DefaultHttpClient httpClient;
+    private static final Gson gson;
 
     private static MmdbApi instance = null;
 
-    static {
-        //initialize cookie handling
-        httpClient.setCookieStore(new BasicCookieStore());
+    private static final int HTTP_CONNECTION_TIMEOUT = 240000;
+    private static final int HTTP_MAX_CONNECTIONS = 100;
+    private static final int HTTP_MAX_CONNECTIONS_PER_ROUTE = 16;
 
-        //set basic authentication cache
-        AuthCache authCache = new BasicAuthCache();
-        BasicScheme basicAuth = new BasicScheme();
-        authCache.put(targetHost, basicAuth);
-        localContext.setAttribute(ClientContext.AUTH_CACHE, authCache);
+    private final String CLIENT_ID;
+    private final String CLIENT_SECRET;
+
+    static {
+        //Initialize httpclient
+        HttpParams params = new BasicHttpParams();
+        HttpConnectionParams.setConnectionTimeout(params, HTTP_CONNECTION_TIMEOUT);
+
+        ThreadSafeClientConnManager connectionManager = new ThreadSafeClientConnManager();
+        connectionManager.setMaxTotal(HTTP_MAX_CONNECTIONS);
+        connectionManager.setDefaultMaxPerRoute(HTTP_MAX_CONNECTIONS_PER_ROUTE);
+
+        httpClient = new ContentEncodingHttpClient(connectionManager, params);
+
+        //Initialize GSON
+        GsonBuilder gsonBuilder = new GsonBuilder();
+        gson = gsonBuilder.create();
     }
 
     private MmdbApiImpl() {
-    }
-
-    @Override
-    public void setBasicAuthentication(String username, String password) {
-        httpClient.getCredentialsProvider().setCredentials(authScope, new UsernamePasswordCredentials(username, password));
-    }
-
-    @Override
-    public List<? extends Media> search(MediaType mediaType, String searchQuery) {
-        if (searchQuery == null)
-            return null;
-
-        searchQuery = searchQuery.trim();
-        if (searchQuery.length() == 0)
-            return null;
-
-        try {
-            String url = API_PATH + "/search?mediaType=" + mediaType + "&searchQuery=" + URLEncoder.encode(searchQuery, "UTF-8");
-            String response = sendHttpGETRequest(url);
-
-            switch (mediaType) {
-                case MOVIE:
-                    return convertFromJsonToObjectOfType(response, new TypeToken<List<MovieImpl>>() {
-                    });
-                default:
-                    throw new IllegalArgumentException(mediaType + " is stub");
-            }
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException("unexpected error", e);
-        }
-    }
-
-    @Override
-    public User getUser() {
-        String url = API_PATH + "/user";
-        String response = sendHttpGETRequest(url);
-        return convertFromJsonToObjectOfType(response, new TypeToken<UserImpl>() {
-        });
-    }
-
-    @Override
-    public Media getMedia(MediaType mediaType, IdType idType, Object id) {
-        switch (mediaType) {
-            case MOVIE:
-                return getMedia(Movie.class, idType, id);
-            default:
-                throw new IllegalArgumentException(mediaType + " is stub");
-        }
-    }
-
-    @Override
-    public <T> T getMedia(Class<T> classObj, IdType idType, Object id) {
-
-        MediaType mediaType = null;
-        TypeToken typeToken = null;
-
-        if (classObj.equals(Movie.class)) {
-            mediaType = MediaType.MOVIE;
-            typeToken = new TypeToken<MovieImpl>() {
-            };
-        } else {
-            throw new IllegalArgumentException("stub");
-        }
-
-        String url = API_PATH + "/media?mediaType=" + mediaType + "&idType=" + idType + "&id=" + id;
-        String response = sendHttpGETRequest(url);
-        return (T) convertFromJsonToObjectOfType(response, typeToken);
-    }
-
-    @Override
-    public UserMedia putUserMedia(MediaType mediaType, IdType idType, Object id, UserMedia media) {
-        String url = API_PATH + "/userMedia?mediaType=" + mediaType + "&idType=" + idType + "&id=" + id;
-        String payload = convertFromObjectToJson(media);
-        String response = sendHttpPUTRequest(url, payload);
-        return convertFromJsonToObjectOfType(response, new TypeToken<UserMediaImpl>() {
-        });
-    }
-
-    @Override
-    public UserMedia getUserMedia(MediaType mediaType, IdType idType, Object id) {
-        String url = API_PATH + "/userMedia?mediaType=" + mediaType + "&idType=" + idType + "&id=" + id;
-        String response = sendHttpGETRequest(url);
-        return convertFromJsonToObjectOfType(response, new TypeToken<UserMediaImpl>() {
-        });
-    }
-
-    @Override
-    public UserMedia getEmptyUserMedia() {
-        return new UserMediaImpl();
-    }
-
-    private String sendHttpGETRequest(String url) {
-        if (!isBasicAuthenticationSet()) {
-            throw new RuntimeException("no basic authentication is set!");
-        }
-
-        try {
-            HttpGet httpGet = new HttpGet(url);
-            httpGet.setHeader("Accept", "text/json");
-            httpGet.setHeader("Content-Type", "text/json");
-            HttpResponse response = httpClient.execute(targetHost, httpGet, localContext);
-            String responseData = EntityUtils.toString(response.getEntity());
-            return responseData;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private String sendHttpPUTRequest(String url, String data) {
-        if (!isBasicAuthenticationSet()) {
-            throw new RuntimeException("no basic authentication is set!");
-        }
-
-        try {
-            HttpPut httpPut = new HttpPut(url);
-            httpPut.setHeader("Accept", "text/json");
-            httpPut.setHeader("Content-Type", "text/json");
-            httpPut.setEntity(new StringEntity(data));
-            HttpResponse response = httpClient.execute(targetHost, httpPut, localContext);
-            String responseData = EntityUtils.toString(response.getEntity());
-            return responseData;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-
-    private <T> T convertFromJsonToObjectOfType(String response, TypeToken<T> type) {
-        try {
-            T result = (T) new Gson().fromJson(response, type.getType());
-            return result;
-        } catch (JsonParseException x) {
-            log.warn("could not parse json", x);
-        } catch (Exception x) {
-            log.error("Unhandled exception!", x);
-        }
-        return null;
-    }
-
-    private String convertFromObjectToJson(Object obj) {
-        return new Gson().toJson(obj);
-    }
-
-    private boolean isBasicAuthenticationSet() {
-        return httpClient.getCredentialsProvider().getCredentials(authScope) != null;
+        CLIENT_ID = System.getProperty("mmdb.api.clientId");
+        CLIENT_SECRET = System.getProperty("mmdb.api.clientSecret");
     }
 
     public static MmdbApi getInstance() {
@@ -228,5 +96,80 @@ public class MmdbApiImpl implements MmdbApi {
         }
         return instance;
     }
+
+    @Override
+    public URI getAuthorizeEndpoint(String redirectUri, String state){
+        String queryParams = "client_id="+CLIENT_ID+"&response_type=token";
+
+        if(redirectUri != null){
+            queryParams += "&redirect_uri="+redirectUri;
+        }
+
+        if(state != null){
+            queryParams += "&state="+state;
+        }
+
+        return getUri("/oauth/authorize",queryParams);
+    }
+
+    @Override
+    public Token getAccessToken(String username, String password){
+        URI uri = getUri("/oauth/token",null);
+        UrlEncodedFormEntity postParameters = createUrlEncodedFormParameters(
+                new BasicNameValuePair("client_id", CLIENT_ID),
+                new BasicNameValuePair("client_secret", CLIENT_ID),
+                new BasicNameValuePair("grant_type", "password"),
+                new BasicNameValuePair("username", username),
+                new BasicNameValuePair("password", password)
+        );
+        HttpPost post = new HttpPost(uri);
+        post.setEntity(postParameters);
+        HttpResponse response = sendRequest(post);
+        if(response.getStatusLine().getStatusCode() != 200){
+            throw new MmdbApiException(gson.fromJson(getEntityAsString(response), OauthErrorImpl.class));
+        }else{
+            return gson.fromJson(getEntityAsString(response), TokenImpl.class);
+        }
+    }
+
+    private String getEntityAsString(HttpResponse response) {
+        try {
+            return EntityUtils.toString(response.getEntity());
+        } catch (IOException e) {
+            log.fatal("error occurred",e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    private HttpResponse sendRequest(HttpEntityEnclosingRequestBase req) {
+        try {
+            return httpClient.execute(req);
+        } catch (IOException e) {
+            throw new RuntimeException("unexpected error", e);
+        }
+    }
+
+    private UrlEncodedFormEntity createUrlEncodedFormParameters(NameValuePair ... nameValuePairs) {
+        try {
+            UrlEncodedFormEntity formParameters = new UrlEncodedFormEntity(
+                    Arrays.asList(nameValuePairs)
+            ,"UTF-8");
+            return formParameters;
+        } catch (UnsupportedEncodingException e) {
+            log.fatal("error when creating form parameters",e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    private URI getUri(String endpoint,String queryParams) {
+        try {
+            return URIUtils.createURI(API_SCHEMA, API_HOST, API_PORT, API_PATH + endpoint, queryParams, null);
+        } catch (URISyntaxException e) {
+            log.fatal("something wrong with uri syntax", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+
 
 }

@@ -1,99 +1,88 @@
 package org.mymediadb.api.mmdb.internal.api;
 
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.mymediadb.api.mmdb.api.MmdbApi;
-import org.mymediadb.api.mmdb.api.MmdbApi.MediaType;
-import org.mymediadb.api.mmdb.model.Media;
-import org.mymediadb.api.mmdb.model.Movie;
-import org.mymediadb.api.mmdb.model.User;
-import org.mymediadb.api.mmdb.model.UserMedia;
+import org.mymediadb.api.mmdb.api.MmdbApiException;
+import org.mymediadb.api.mmdb.model.Token;
 
-import java.util.List;
+import java.net.URI;
+import java.net.URLEncoder;
 
 import static junit.framework.Assert.*;
 
 public class MmdbApiImplTest {
 
-    private MmdbApi mmdbApi;
+    private final static String MMDB_API_URL = "http://test.mymediadb.org:80/api/0.2";
+    private final static String CLIENT_ID = System.getProperty("mmdb.api.clientId");
+    private final static String CLIENT_SECRET = System.getProperty("mmdb.api.clientSecret");
+
+    private MmdbApiImpl mmdbApi;
 
     @Before
     public void setup() {
-        mmdbApi = MmdbApiImpl.getInstance();
-        mmdbApi.setBasicAuthentication(System.getProperty("test.basic.auth.username"), System.getProperty("test.basic.auth.password"));
+        mmdbApi = (MmdbApiImpl) MmdbApiImpl.getInstance();
+        Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET);
     }
 
     @Test
-    public void testValidSearch() {
-        List<? extends Media> movies = mmdbApi.search(MediaType.MOVIE, "Prince of persia");
-        assertNotNull(movies);
+    public void testAuthorizationUrlWhereNoRedirectUriOrStateIsSpecified() {
+        URI url = mmdbApi.getAuthorizeEndpoint(null,null);
+        assertEquals(MMDB_API_URL+"/oauth/authorize?client_id="+CLIENT_ID+"&response_type=token",url.toString());
     }
 
     @Test
-    public void testInvalidSearch() {
-        List<? extends Media> movies = mmdbApi.search(MediaType.MOVIE, "");
-        assertNull(movies);
+    public void testAuthorizationUrlWhereNoStateIsSpecified() throws Exception {
+        String redirect = "http://www.example.com/callback";
+        URI url = mmdbApi.getAuthorizeEndpoint(redirect,null);
+        assertEquals(MMDB_API_URL+"/oauth/authorize?client_id="+CLIENT_ID+"&response_type=token&redirect_uri="+redirect,url.toString());
     }
 
     @Test
-    public void testInvalidSearchWithSpaces() {
-        List<? extends Media> movies = mmdbApi.search(MediaType.MOVIE, "    ");
-        assertNull(movies);
+    public void testAuthorizationUrlWhereNoRedirectIsSpecified() throws Exception {
+        String state = "my-state=??&!()";
+        URI url = mmdbApi.getAuthorizeEndpoint(null,state);
+        assertEquals(MMDB_API_URL+"/oauth/authorize?client_id="+CLIENT_ID+"&response_type=token&state="+state,url.toString());
     }
 
     @Test
-    public void testNullSearch() {
-        List<? extends Media> movies = mmdbApi.search(MediaType.MOVIE, null);
-        assertNull(movies);
+    public void testAuthorizationUrlWhereRedirectAndStateIsSpecified() throws Exception {
+        String redirect = "http://www.example.com/callback";
+        String state = "my-state=??&!()";
+        URI url = mmdbApi.getAuthorizeEndpoint(redirect,state);
+        assertEquals(MMDB_API_URL+"/oauth/authorize?client_id="+CLIENT_ID+"&response_type=token&redirect_uri="+redirect+"&state="+state,url.toString());
     }
 
-    @Test
-    public void testGetUser() {
-        User user = mmdbApi.getUser();
-        assertNotNull(user);
+    @Test(expected = MmdbApiException.class)
+    public void testGetTokenWithInvalidClientId() throws Exception {
+        System.setProperty("mmdb.api.clientId","invalid");
+        try{
+            Token token = mmdbApi.getAccessToken(null,null);
+        }catch (MmdbApiException x){
+            assertEquals("unauthorized_client",x.getMessage());
+            throw x;
+        }
     }
 
-    @Test
-    public void testGetMediaByMmdbId() {
-        Media media = mmdbApi.getMedia(MmdbApi.MediaType.MOVIE, MmdbApi.IdType.MMDB, 1);
-        assertNotNull(media);
-        assertNotNull(media.getUserMedia());
+    @Test(expected = MmdbApiException.class)
+    public void testGetTokenWithInvalidClientSecret() throws Exception {
+        System.setProperty("mmdb.api.clientSecret","invalid");
+        try{
+            Token token = mmdbApi.getAccessToken(null,null);
+        }catch (MmdbApiException x){
+            assertEquals("unauthorized_client",x.getMessage());
+            throw x;
+        }
     }
 
-    @Test
-    public void testGetMovieByMmdbId() {
-        Movie movie = mmdbApi.getMedia(Movie.class, MmdbApi.IdType.MMDB, 1);
-        assertNotNull(movie);
-        assertNotNull(movie.getUserMedia());
-    }
-
-    @Test
-    public void testGetMovieByTmdbId() {
-        Movie movie = mmdbApi.getMedia(Movie.class, MmdbApi.IdType.TMDB, 137);
-        assertNotNull(movie);
-        assertNotNull(movie.getUserMedia());
-    }
-
-    @Test
-    public void testGetMovieByImdbId() {
-        Movie movie = mmdbApi.getMedia(Movie.class, MmdbApi.IdType.IMDB, "tt0111161");
-        assertNotNull(movie);
-        assertNotNull(movie.getUserMedia());
-    }
-
-    @Test
-    public void testGetUserMedia() {
-        UserMedia userMedia = mmdbApi.getUserMedia(MmdbApi.MediaType.MOVIE, MmdbApi.IdType.IMDB, "tt0111161");
-        assertNotNull(userMedia);
-    }
-
-    @Test
-    public void testPutUserMedia() {
-        UserMedia userMedia = mmdbApi.getUserMedia(MmdbApi.MediaType.MOVIE, MmdbApi.IdType.IMDB, "tt0111161");
-        boolean acquired = userMedia.isAcquired();
-        userMedia = mmdbApi.getEmptyUserMedia();
-        userMedia.setAcquired(!acquired);
-        userMedia = mmdbApi.putUserMedia(MmdbApi.MediaType.MOVIE, MmdbApi.IdType.IMDB, "tt0111161", userMedia);
-        assertTrue(userMedia.isAcquired() != acquired);
+    @Test(expected = MmdbApiException.class)
+    public void testGetTokenWithInvalidUsername() throws Exception {
+        try{
+            Token token = mmdbApi.getAccessToken(null,null);
+        }catch (MmdbApiException x){
+            assertEquals("unauthorized_client",x.getMessage());
+            throw x;
+        }
     }
 }
