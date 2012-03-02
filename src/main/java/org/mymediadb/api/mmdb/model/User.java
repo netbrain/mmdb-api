@@ -17,5 +17,11 @@ package org.mymediadb.api.mmdb.model;
 
 
 public interface User {
+    
+    String getUsername();
+    String getDisplayName();
+    Image getPicture25();
+    Image getPicture50();
+    Image getPicture150();
 
 }

@@ -4,7 +4,10 @@ import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.mymediadb.api.mmdb.api.MmdbApiException;
+import org.mymediadb.api.mmdb.api.MmdbApiOauthException;
+import org.mymediadb.api.mmdb.api.MmdbApiRequestException;
 import org.mymediadb.api.mmdb.model.Token;
+import org.mymediadb.api.mmdb.model.User;
 
 import java.net.URI;
 
@@ -14,6 +17,8 @@ import static org.mymediadb.api.mmdb.internal.api.MmdbApiImpl.*;
 public class MmdbApiImplTest {
 
     private final static String MMDB_API_URL = API_SCHEMA+"://"+API_HOST+":"+API_PORT+API_PATH;
+    private final static String AUTHORIZE_ENDPOINT = MMDB_API_URL+"/oauth/authorize";
+
     private final static String CLIENT_ID = System.getProperty("org.mymediadb.api.mmdb.test.CLIENT_ID");
     private final static String CLIENT_SECRET = System.getProperty("org.mymediadb.api.mmdb.test.CLIENT_SECRET");
     private final static String VALID_USERNAME = System.getProperty("org.mymediadb.api.mmdb.test.VALID_USERNAME");
@@ -26,26 +31,27 @@ public class MmdbApiImplTest {
         mmdbApi = (MmdbApiImpl) MmdbApiImpl.getInstance();
         mmdbApi.setClientId(CLIENT_ID);
         mmdbApi.setClientSecret(CLIENT_SECRET);
+        mmdbApi.setAccessToken(null);
     }
 
     @Test
     public void testAuthorizationUrlWhereNoRedirectUriOrStateIsSpecified() {
         URI url = mmdbApi.getAuthorizeEndpoint(null,null);
-        assertEquals(MMDB_API_URL+"/oauth/authorize?client_id="+CLIENT_ID+"&response_type=token",url.toString());
+        assertEquals(AUTHORIZE_ENDPOINT + "?client_id=" +CLIENT_ID+"&response_type=token",url.toString());
     }
 
     @Test
     public void testAuthorizationUrlWhereNoStateIsSpecified() throws Exception {
         String redirect = "http://www.example.com/callback";
         URI url = mmdbApi.getAuthorizeEndpoint(redirect,null);
-        assertEquals(MMDB_API_URL+"/oauth/authorize?client_id="+CLIENT_ID+"&response_type=token&redirect_uri="+redirect,url.toString());
+        assertEquals(AUTHORIZE_ENDPOINT + "?client_id=" +CLIENT_ID+"&response_type=token&redirect_uri="+redirect,url.toString());
     }
 
     @Test
     public void testAuthorizationUrlWhereNoRedirectIsSpecified() throws Exception {
         String state = "my-state=??&!()";
         URI url = mmdbApi.getAuthorizeEndpoint(null,state);
-        assertEquals(MMDB_API_URL+"/oauth/authorize?client_id="+CLIENT_ID+"&response_type=token&state="+state,url.toString());
+        assertEquals(AUTHORIZE_ENDPOINT + "?client_id=" +CLIENT_ID+"&response_type=token&state="+state,url.toString());
     }
 
     @Test
@@ -53,7 +59,7 @@ public class MmdbApiImplTest {
         String redirect = "http://www.example.com/callback";
         String state = "my-state=??&!()";
         URI url = mmdbApi.getAuthorizeEndpoint(redirect,state);
-        assertEquals(MMDB_API_URL+"/oauth/authorize?client_id="+CLIENT_ID+"&response_type=token&redirect_uri="+redirect+"&state="+state,url.toString());
+        assertEquals(AUTHORIZE_ENDPOINT + "?client_id=" +CLIENT_ID+"&response_type=token&redirect_uri="+redirect+"&state="+state,url.toString());
     }
 
     @Test
@@ -63,8 +69,8 @@ public class MmdbApiImplTest {
         try{
             mmdbApi.getAccessToken(null,null);
             fail("exception was not thrown!");
-        }catch (MmdbApiException x){
-            assertEquals("unauthorized_client",x.getMessage());
+        }catch (MmdbApiOauthException x){
+            assertEquals("unauthorized_client",x.getText());
         }
     }
 
@@ -75,8 +81,8 @@ public class MmdbApiImplTest {
         try{
             mmdbApi.getAccessToken(null,null);
             fail("exception was not thrown!");
-        }catch (MmdbApiException x){
-            assertEquals("unauthorized_client",x.getMessage());
+        }catch (MmdbApiOauthException x){
+            assertEquals("unauthorized_client",x.getText());
         }
     }
 
@@ -86,8 +92,8 @@ public class MmdbApiImplTest {
         try{
             mmdbApi.getAccessToken(null,null);
             fail("exception was not thrown!");
-        }catch (MmdbApiException x){
-            assertEquals("invalid_request",x.getMessage());
+        }catch (MmdbApiOauthException x){
+            assertEquals("invalid_request",x.getText());
         }
     }
 
@@ -97,27 +103,61 @@ public class MmdbApiImplTest {
         try{
             mmdbApi.getAccessToken("user-doesnt-exist","password");
             fail("exception was not thrown!");
-        }catch (MmdbApiException x){
-            assertEquals("invalid_grant",x.getMessage());
+        }catch (MmdbApiOauthException x){
+            assertEquals("invalid_grant",x.getText());
         }
     }
 
+    @Test
     public void testGetTokenWithExistingUsernameButIncorrectPassword() throws Exception {
         Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET,VALID_USERNAME);
         try{
             mmdbApi.getAccessToken(VALID_USERNAME,"invalid-password");
             fail("exception was not thrown!");
-        }catch (MmdbApiException x){
-            assertEquals("invalid_grant",x.getMessage());
+        }catch (MmdbApiOauthException x){
+            assertEquals("invalid_grant",x.getText());
         }
     }
 
     @Test
     public void testGetTokenWithValidUsernameAndPasswordCredentials() throws Exception {
-        Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET,VALID_PASSWORD,VALID_USERNAME);
-        Token token = mmdbApi.getAccessToken(VALID_USERNAME,VALID_PASSWORD);
+        Token token = getAccessToken();
         assertNotNull(token);
         assertNotNull(token.getAccessToken());
         assertEquals(Token.TokenType.bearer,token.getTokenType());
+    }
+
+    @Test(expected = MmdbApiException.class)
+    public void testGetUserWithoutAccessToken() throws Exception {
+        mmdbApi.getUser();
+    }
+
+    @Test
+    public void testGetUserWithAccessToken() throws Exception {
+        mmdbApi.setAccessToken(getAccessToken());
+        User user = mmdbApi.getUser();
+        assertNotNull(user);
+        assertNotNull(user.getUsername());
+        assertNotNull(user.getDisplayName());
+    }
+
+    @Test
+    public void testGetUserByUsernameWithoutAccessToken() throws Exception {
+        Assume.assumeNotNull(VALID_USERNAME);
+        User user = mmdbApi.getUser(VALID_USERNAME);
+        assertNotNull(user);
+    }
+
+    @Test
+    public void testGetUserByUsernameWithAccessToken() throws Exception {
+        Assume.assumeNotNull(VALID_USERNAME);
+        mmdbApi.setAccessToken(getAccessToken());
+        User user = mmdbApi.getUser(VALID_USERNAME);
+        assertNotNull(user);
+    }
+
+    private Token getAccessToken() {
+        Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET,VALID_PASSWORD,VALID_USERNAME);
+        return mmdbApi.getAccessToken(VALID_USERNAME,VALID_PASSWORD);
     }
 }

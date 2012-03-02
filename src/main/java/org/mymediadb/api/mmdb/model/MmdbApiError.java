@@ -1,5 +1,6 @@
 package org.mymediadb.api.mmdb.model;
 
 public interface MmdbApiError {
-    String getError();
+    int getStatus();
+    String getText();
 }

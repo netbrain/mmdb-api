@@ -1,28 +1,18 @@
 package org.mymediadb.api.mmdb.api;
 
-import org.mymediadb.api.mmdb.internal.model.OauthErrorImpl;
 import org.mymediadb.api.mmdb.model.MmdbApiError;
 
 public class MmdbApiException extends RuntimeException {
 
-    private MmdbApiError mmdbApiError;
-
-    public MmdbApiException(MmdbApiError mmdbApiError) {
-        this.mmdbApiError = mmdbApiError;
+    public MmdbApiException() {
+        super();
     }
 
-    @Override
-    public String getMessage() {
-        return mmdbApiError.getError();
+    public MmdbApiException(String s) {
+        super(s);
     }
 
-    @Override
-    public String getLocalizedMessage() {
-        return getMessage();
-    }
-
-    @Override
-    public String toString() {
-        return getMessage();
+    public MmdbApiException(String s, Throwable throwable) {
+        super(s, throwable);
     }
 }

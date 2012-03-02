@@ -17,6 +17,7 @@ package org.mymediadb.api.mmdb.api;
 
 
 import org.mymediadb.api.mmdb.model.Token;
+import org.mymediadb.api.mmdb.model.User;
 
 import java.net.URI;
 import java.util.List;
@@ -25,6 +26,13 @@ public interface MmdbApi {
 
     URI getAuthorizeEndpoint(String redirectUri, String state);
 
+    Token getAccessToken();
+
+    void setAccessToken(Token accessToken);
+
     Token getAccessToken(String username, String password);
 
+    User getUser();
+
+    User getUser(String username);
 }

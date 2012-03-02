@@ -1,11 +1,30 @@
 package org.mymediadb.api.mmdb.api;
 
 import org.mymediadb.api.mmdb.model.MmdbApiError;
-import org.mymediadb.api.mmdb.model.OauthError;
 
-public class MmdbApiOauthException extends MmdbApiException {
+public class MmdbApiOauthException extends MmdbApiException implements MmdbApiError {
 
-    public MmdbApiOauthException(OauthError mmdbApiOauthError) {
-        super(mmdbApiOauthError);
+    private String error;
+    private int status;
+
+    public MmdbApiOauthException(String error, int status) {
+        this.error = error;
+        this.status = status;
     }
+
+    @Override
+    public int getStatus() {
+        return this.status;
+    }
+
+    @Override
+    public String getText() {
+        return this.error;
+    }
+
+    @Override
+    public String getMessage() {
+        return "OAuth call returned in error: status="+getStatus()+" text="+getText();
+    }
+
 }
