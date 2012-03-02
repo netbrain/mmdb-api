@@ -17,7 +17,6 @@ package org.mymediadb.api.mmdb.internal.api;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -44,17 +43,15 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
 import java.util.Arrays;
-import java.util.Collections;
 
 public class MmdbApiImpl implements MmdbApi {
     public final static Logger log = Logger.getLogger(MmdbApiImpl.class);
 
-    private final static int API_PORT = 80;
-    private final static String API_SCHEMA = "http";
-    private final static String API_HOST = "test.mymediadb.org";
-    private final static String API_PATH = "/api/0.2";
+    public final static int API_PORT = 8080;
+    public final static String API_SCHEMA = "http";
+    public final static String API_HOST = "dev.mymediadb.org";
+    public final static String API_PATH = "/mymediadb/api/0.2";
 
     private static final HttpHost targetHost = new HttpHost(API_HOST, API_PORT, API_SCHEMA);
     private static final DefaultHttpClient httpClient;
@@ -66,8 +63,8 @@ public class MmdbApiImpl implements MmdbApi {
     private static final int HTTP_MAX_CONNECTIONS = 100;
     private static final int HTTP_MAX_CONNECTIONS_PER_ROUTE = 16;
 
-    private final String CLIENT_ID;
-    private final String CLIENT_SECRET;
+    private String clientId;
+    private String clientSecret;
 
     static {
         //Initialize httpclient
@@ -86,8 +83,8 @@ public class MmdbApiImpl implements MmdbApi {
     }
 
     private MmdbApiImpl() {
-        CLIENT_ID = System.getProperty("mmdb.api.clientId");
-        CLIENT_SECRET = System.getProperty("mmdb.api.clientSecret");
+        clientId = System.getProperty("mmdb.api.clientId");
+        clientSecret = System.getProperty("mmdb.api.clientSecret");
     }
 
     public static MmdbApi getInstance() {
@@ -97,9 +94,25 @@ public class MmdbApiImpl implements MmdbApi {
         return instance;
     }
 
+    public String getClientId() {
+        return clientId;
+    }
+
+    public void setClientId(String clientId) {
+        this.clientId = clientId;
+    }
+
+    public String getClientSecret() {
+        return clientSecret;
+    }
+
+    public void setClientSecret(String clientSecret) {
+        this.clientSecret = clientSecret;
+    }
+
     @Override
     public URI getAuthorizeEndpoint(String redirectUri, String state){
-        String queryParams = "client_id="+CLIENT_ID+"&response_type=token";
+        String queryParams = "client_id="+ clientId +"&response_type=token";
 
         if(redirectUri != null){
             queryParams += "&redirect_uri="+redirectUri;
@@ -116,8 +129,8 @@ public class MmdbApiImpl implements MmdbApi {
     public Token getAccessToken(String username, String password){
         URI uri = getUri("/oauth/token",null);
         UrlEncodedFormEntity postParameters = createUrlEncodedFormParameters(
-                new BasicNameValuePair("client_id", CLIENT_ID),
-                new BasicNameValuePair("client_secret", CLIENT_ID),
+                new BasicNameValuePair("client_id", clientId),
+                new BasicNameValuePair("client_secret", clientSecret),
                 new BasicNameValuePair("grant_type", "password"),
                 new BasicNameValuePair("username", username),
                 new BasicNameValuePair("password", password)

@@ -3,27 +3,29 @@ package org.mymediadb.api.mmdb.internal.api;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
-import org.mymediadb.api.mmdb.api.MmdbApi;
 import org.mymediadb.api.mmdb.api.MmdbApiException;
 import org.mymediadb.api.mmdb.model.Token;
 
 import java.net.URI;
-import java.net.URLEncoder;
 
 import static junit.framework.Assert.*;
+import static org.mymediadb.api.mmdb.internal.api.MmdbApiImpl.*;
 
 public class MmdbApiImplTest {
 
-    private final static String MMDB_API_URL = "http://test.mymediadb.org:80/api/0.2";
-    private final static String CLIENT_ID = System.getProperty("mmdb.api.clientId");
-    private final static String CLIENT_SECRET = System.getProperty("mmdb.api.clientSecret");
+    private final static String MMDB_API_URL = API_SCHEMA+"://"+API_HOST+":"+API_PORT+API_PATH;
+    private final static String CLIENT_ID = System.getProperty("org.mymediadb.api.mmdb.test.CLIENT_ID");
+    private final static String CLIENT_SECRET = System.getProperty("org.mymediadb.api.mmdb.test.CLIENT_SECRET");
+    private final static String VALID_USERNAME = System.getProperty("org.mymediadb.api.mmdb.test.VALID_USERNAME");
+    private final static String VALID_PASSWORD = System.getProperty("org.mymediadb.api.mmdb.test.VALID_PASSWORD");
 
     private MmdbApiImpl mmdbApi;
 
     @Before
     public void setup() {
         mmdbApi = (MmdbApiImpl) MmdbApiImpl.getInstance();
-        Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET);
+        mmdbApi.setClientId(CLIENT_ID);
+        mmdbApi.setClientSecret(CLIENT_SECRET);
     }
 
     @Test
@@ -54,35 +56,68 @@ public class MmdbApiImplTest {
         assertEquals(MMDB_API_URL+"/oauth/authorize?client_id="+CLIENT_ID+"&response_type=token&redirect_uri="+redirect+"&state="+state,url.toString());
     }
 
-    @Test(expected = MmdbApiException.class)
+    @Test
     public void testGetTokenWithInvalidClientId() throws Exception {
-        System.setProperty("mmdb.api.clientId","invalid");
+        Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET);
+        mmdbApi.setClientId("invalid");
         try{
-            Token token = mmdbApi.getAccessToken(null,null);
+            mmdbApi.getAccessToken(null,null);
+            fail("exception was not thrown!");
         }catch (MmdbApiException x){
             assertEquals("unauthorized_client",x.getMessage());
-            throw x;
         }
     }
 
-    @Test(expected = MmdbApiException.class)
+    @Test
     public void testGetTokenWithInvalidClientSecret() throws Exception {
-        System.setProperty("mmdb.api.clientSecret","invalid");
+        Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET);
+        mmdbApi.setClientSecret("invalid");
         try{
-            Token token = mmdbApi.getAccessToken(null,null);
+            mmdbApi.getAccessToken(null,null);
+            fail("exception was not thrown!");
         }catch (MmdbApiException x){
             assertEquals("unauthorized_client",x.getMessage());
-            throw x;
         }
     }
 
-    @Test(expected = MmdbApiException.class)
+    @Test
     public void testGetTokenWithInvalidUsername() throws Exception {
+        Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET);
         try{
-            Token token = mmdbApi.getAccessToken(null,null);
+            mmdbApi.getAccessToken(null,null);
+            fail("exception was not thrown!");
         }catch (MmdbApiException x){
-            assertEquals("unauthorized_client",x.getMessage());
-            throw x;
+            assertEquals("invalid_request",x.getMessage());
         }
+    }
+
+    @Test
+    public void testGetTokenWithNonExistingUsernameAndPassword() throws Exception {
+        Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET);
+        try{
+            mmdbApi.getAccessToken("user-doesnt-exist","password");
+            fail("exception was not thrown!");
+        }catch (MmdbApiException x){
+            assertEquals("invalid_grant",x.getMessage());
+        }
+    }
+
+    public void testGetTokenWithExistingUsernameButIncorrectPassword() throws Exception {
+        Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET,VALID_USERNAME);
+        try{
+            mmdbApi.getAccessToken(VALID_USERNAME,"invalid-password");
+            fail("exception was not thrown!");
+        }catch (MmdbApiException x){
+            assertEquals("invalid_grant",x.getMessage());
+        }
+    }
+
+    @Test
+    public void testGetTokenWithValidUsernameAndPasswordCredentials() throws Exception {
+        Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET,VALID_PASSWORD,VALID_USERNAME);
+        Token token = mmdbApi.getAccessToken(VALID_USERNAME,VALID_PASSWORD);
+        assertNotNull(token);
+        assertNotNull(token.getAccessToken());
+        assertEquals(Token.TokenType.bearer,token.getTokenType());
     }
 }
