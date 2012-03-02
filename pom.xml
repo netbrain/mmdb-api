@@ -27,7 +27,7 @@
     <groupId>org.mymediadb</groupId>
     <artifactId>mmdb-api</artifactId>
     <version>0.2.0</version>
-    <name>${pom.artifactId}</name>
+    <name>${project.artifactId}</name>
     <dependencies>
         <dependency>
             <groupId>junit</groupId>
