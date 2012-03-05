@@ -15,6 +15,6 @@
 
 package org.mymediadb.api.mmdb.model;
 
-public interface Movie {
+public interface Movie extends Media{
 
 }

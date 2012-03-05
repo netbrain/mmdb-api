@@ -16,6 +16,8 @@
 package org.mymediadb.api.mmdb.internal.api;
 
 import com.google.gson.*;
+import com.google.gson.reflect.TypeToken;
+import org.apache.commons.codec.binary.StringUtils;
 import org.apache.http.*;
 import org.apache.http.client.methods.*;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -32,9 +34,13 @@ import org.mymediadb.api.mmdb.model.*;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 
 public class MmdbApiImpl implements MmdbApi {
     public final static Logger log = Logger.getLogger(MmdbApiImpl.class);
@@ -185,6 +191,49 @@ public class MmdbApiImpl implements MmdbApi {
         }
     }
 
+    @Override
+    public Collection<User> getUserFriends(String username) {
+        URI uri = getUri(USER_ENDPOINT+"/"+username+"/friends");
+        HttpGet get = new HttpGet(uri);
+        get.setHeader(ACCEPT_HEADER);
+        HttpResponse response = sendRequest(get);
+        if(isResponseStatusError(response)){
+            JsonObject jsonObject = jsonParser.parse(getEntityAsString(response)).getAsJsonObject();
+            throw new MmdbApiRequestException(jsonObject.getAsJsonPrimitive("text").getAsString(),response.getStatusLine().getStatusCode());
+        }else{
+            Collection<User> friends = gson.fromJson(getEntityAsString(response), new TypeToken<Collection<UserImpl>>() {}.getType());
+            return friends != null ? friends : (Collection<User>) Collections.EMPTY_LIST;
+        }
+    }
+
+    public <T> List<T> getLibrary(String username, Class<T> type) {
+        String libraryType;
+        Type deserializeType;
+        if(type.equals(Movie.class)){
+            libraryType = "movie";
+            deserializeType = new TypeToken<List<MovieImpl>>(){}.getType();
+        }else if(type.equals(Series.class)){
+            libraryType = "series";
+            deserializeType = new TypeToken<List<SeriesImpl>>(){}.getType();
+        }else if(type.equals(Episode.class)){
+            libraryType = "episode";
+            deserializeType = new TypeToken<List<EpisodeImpl>>(){}.getType();
+        }else{
+            throw new IllegalArgumentException("Illegal type argument!");
+        }
+
+        URI uri = getUri(USER_ENDPOINT+"/"+username+"/library/"+libraryType+"/list");
+        HttpGet get = new HttpGet(uri);
+        get.setHeader(ACCEPT_HEADER);
+        HttpResponse response = sendRequest(get);
+        if(isResponseStatusError(response)){
+            JsonObject jsonObject = jsonParser.parse(getEntityAsString(response)).getAsJsonObject();
+            throw new MmdbApiRequestException(jsonObject.getAsJsonPrimitive("text").getAsString(),response.getStatusLine().getStatusCode());
+        }else{
+            return gson.fromJson(getEntityAsString(response),deserializeType);
+        }
+    }
+
     private boolean isResponseStatusError(HttpResponse response) {
         return !(isResponseStatusOK(response) || isResponseStatusNoContent(response));
     }
@@ -199,6 +248,9 @@ public class MmdbApiImpl implements MmdbApi {
 
     private String getEntityAsString(HttpResponse response) {
         try {
+            if(response.getEntity() == null){
+                return "";
+            }
             return EntityUtils.toString(response.getEntity());
         } catch (IOException e) {
             log.fatal("error occurred",e);
@@ -245,4 +297,5 @@ public class MmdbApiImpl implements MmdbApi {
     private boolean isAccessTokenSet() {
         return accessToken == null;
     }
+
 }

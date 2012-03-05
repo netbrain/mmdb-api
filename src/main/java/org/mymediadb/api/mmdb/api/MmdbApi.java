@@ -20,6 +20,7 @@ import org.mymediadb.api.mmdb.model.Token;
 import org.mymediadb.api.mmdb.model.User;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.List;
 
 public interface MmdbApi {
@@ -35,4 +36,6 @@ public interface MmdbApi {
     User getUser();
 
     User getUser(String username);
+
+    Collection<User> getUserFriends(String username);
 }

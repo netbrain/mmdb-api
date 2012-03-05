@@ -2,14 +2,18 @@ package org.mymediadb.api.mmdb.internal.api;
 
 import org.junit.Assume;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mymediadb.api.mmdb.api.MmdbApiException;
 import org.mymediadb.api.mmdb.api.MmdbApiOauthException;
 import org.mymediadb.api.mmdb.api.MmdbApiRequestException;
+import org.mymediadb.api.mmdb.model.Movie;
 import org.mymediadb.api.mmdb.model.Token;
 import org.mymediadb.api.mmdb.model.User;
 
 import java.net.URI;
+import java.util.Collection;
+import java.util.List;
 
 import static junit.framework.Assert.*;
 import static org.mymediadb.api.mmdb.internal.api.MmdbApiImpl.*;
@@ -156,8 +160,44 @@ public class MmdbApiImplTest {
         assertNotNull(user);
     }
 
+    @Test
+    public void testGetUserFriendsWithNullParameter() throws Exception {
+        try{
+            mmdbApi.getUserFriends(null);
+            fail("exception was not thrown!");
+        }catch (MmdbApiRequestException x){
+            assertEquals(401,x.getStatus());
+        }
+    }
+
+    @Test
+    public void testGetUserFriendsWithInvalidNonExistantUser() throws Exception {
+        try{
+            mmdbApi.setAccessToken(getAccessToken());
+            mmdbApi.getUserFriends("non-existant");
+            fail("exception was not thrown!");
+        }catch (MmdbApiRequestException x){
+            assertEquals(400,x.getStatus());
+        }
+    }
+
+    @Test
+    public void testGetUserFriendsWithValidUser() throws Exception {
+        mmdbApi.setAccessToken(getAccessToken());
+        Collection<User> friends = mmdbApi.getUserFriends(VALID_USERNAME);
+        assertNotNull(friends);
+
+    }
+
+    @Test
+    public void testGetLibraryList() throws Exception{
+        mmdbApi.setAccessToken(getAccessToken());
+        List<Movie> library = mmdbApi.getLibrary(VALID_USERNAME, Movie.class);
+        assertNotNull(library);
+    }
+
     private Token getAccessToken() {
-        Assume.assumeNotNull(CLIENT_ID,CLIENT_SECRET,VALID_PASSWORD,VALID_USERNAME);
+        Assume.assumeNotNull(CLIENT_ID, CLIENT_SECRET, VALID_PASSWORD, VALID_USERNAME);
         return mmdbApi.getAccessToken(VALID_USERNAME,VALID_PASSWORD);
     }
 }
