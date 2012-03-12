@@ -29,6 +29,8 @@ public class MmdbApiImplTest {
     private final static String VALID_PASSWORD = System.getProperty("org.mymediadb.api.mmdb.test.VALID_PASSWORD");
 
     private MmdbApiImpl mmdbApi;
+    
+    private static Token accessToken;
 
     @Before
     public void setup() {
@@ -147,7 +149,7 @@ public class MmdbApiImplTest {
 
     @Test
     public void testGetUserByUsernameWithoutAccessToken() throws Exception {
-        Assume.assumeNotNull(VALID_USERNAME);
+        Assume.assumeNotNull(CLIENT_ID,VALID_USERNAME);
         User user = mmdbApi.getUser(VALID_USERNAME);
         assertNotNull(user);
     }
@@ -198,6 +200,9 @@ public class MmdbApiImplTest {
 
     private Token getAccessToken() {
         Assume.assumeNotNull(CLIENT_ID, CLIENT_SECRET, VALID_PASSWORD, VALID_USERNAME);
-        return mmdbApi.getAccessToken(VALID_USERNAME,VALID_PASSWORD);
+        if(accessToken == null){
+            accessToken = mmdbApi.getAccessToken(VALID_USERNAME,VALID_PASSWORD);
+        }
+        return accessToken;
     }
 }

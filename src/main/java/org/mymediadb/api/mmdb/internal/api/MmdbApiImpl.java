@@ -45,10 +45,10 @@ import java.util.List;
 public class MmdbApiImpl implements MmdbApi {
     public final static Logger log = Logger.getLogger(MmdbApiImpl.class);
 
-    public final static int API_PORT = 8080;
+    public final static int API_PORT = 80;
     public final static String API_SCHEMA = "http";
-    public final static String API_HOST = "dev.mymediadb.org";
-    public final static String API_PATH = "/mymediadb/api/0.2";
+    public final static String API_HOST = "test.mymediadb.org";
+    public final static String API_PATH = "/api/0.2";
 
     public final static String OAUTH_AUTHORIZE_ENDPOINT = "/oauth/authorize";
     public final static String OAUTH_TOKEN_ENDPOINT = "/oauth/token";
@@ -56,7 +56,6 @@ public class MmdbApiImpl implements MmdbApi {
 
     private final static Header ACCEPT_HEADER = new BasicHeader("Accept","application/json");
 
-    private static final HttpHost targetHost = new HttpHost(API_HOST, API_PORT, API_SCHEMA);
     private static final DefaultHttpClient httpClient;
     private static final Gson gson;
     private static final JsonParser jsonParser = new JsonParser();
@@ -74,7 +73,7 @@ public class MmdbApiImpl implements MmdbApi {
 
 
     static {
-        //Initialize httpclient
+        //Initialize httpcligetUrient
         HttpParams params = new BasicHttpParams();
         HttpConnectionParams.setConnectionTimeout(params, HTTP_CONNECTION_TIMEOUT);
 
@@ -175,7 +174,7 @@ public class MmdbApiImpl implements MmdbApi {
         if(username != null){
             endpoint += "/"+username;
         }else{
-            if(isAccessTokenSet()){
+            if(!isAccessTokenSet()){
                 throw new MmdbApiException("Access token is required on this request.");
             }
         }
@@ -268,10 +267,9 @@ public class MmdbApiImpl implements MmdbApi {
 
     private UrlEncodedFormEntity createUrlEncodedFormParameters(NameValuePair ... nameValuePairs) {
         try {
-            UrlEncodedFormEntity formParameters = new UrlEncodedFormEntity(
+            return new UrlEncodedFormEntity(
                     Arrays.asList(nameValuePairs)
             ,"UTF-8");
-            return formParameters;
         } catch (UnsupportedEncodingException e) {
             log.fatal("error when creating form parameters",e);
             throw new RuntimeException(e);
@@ -284,8 +282,10 @@ public class MmdbApiImpl implements MmdbApi {
 
     private URI getUri(String endpoint,String queryParams) {
         try {
-            if(!isAccessTokenSet()){
-                endpoint = "/!"+this.accessToken.getAccessToken()+endpoint;
+            if(isAccessTokenSet()){
+                endpoint = "/"+this.accessToken.getAccessToken()+endpoint;
+            }else if(!(endpoint.equals(OAUTH_AUTHORIZE_ENDPOINT) || endpoint.equals(OAUTH_TOKEN_ENDPOINT))){
+                endpoint = "/"+this.clientId+endpoint;
             }
             return URIUtils.createURI(API_SCHEMA, API_HOST, API_PORT, API_PATH + endpoint, queryParams, null);
         } catch (URISyntaxException e) {
@@ -295,7 +295,7 @@ public class MmdbApiImpl implements MmdbApi {
     }
 
     private boolean isAccessTokenSet() {
-        return accessToken == null;
+        return accessToken != null;
     }
 
 }
