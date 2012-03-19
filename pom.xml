@@ -73,12 +73,12 @@
     <distributionManagement>
         <repository>
             <id>mmdb-releases</id>
-            <name>MyMediadDB maven repository</name>
+            <name>mmdb releases repository</name>
             <url>http://test.mymediadb.org/nexus/content/repositories/releases</url>
         </repository>
         <snapshotRepository>
             <id>mmdb-snapshots</id>
-            <name>MyMediadDB maven repository</name>
+            <name>mmdb snapshots repository</name>
             <url>http://test.mymediadb.org/nexus/content/repositories/snapshots</url>
         </snapshotRepository>
     </distributionManagement>
