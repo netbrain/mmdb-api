@@ -22,6 +22,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <scm.repo>scm:git:git@github.com:netbrain/${project.artifactId}.git</scm.repo>
     </properties>
 
     <groupId>org.mymediadb</groupId>
@@ -56,16 +57,25 @@
         </dependency>
     </dependencies>
 
+    <scm>
+        <connection>${scm.repo}</connection>
+        <url>${scm.repo}</url>
+        <developerConnection>${scm.repo}</developerConnection>
+    </scm>
+
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>2.3.2</version>
                 <configuration>
-                    <source>1.6</source>
-                    <target>1.6</target>
+                    <source>1.5</source>
+                    <target>1.5</target>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <version>2.2.2</version>
             </plugin>
         </plugins>
     </build>
